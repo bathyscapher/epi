@@ -1,76 +1,97 @@
 ################################################################################
 ################################################################################
-# Environmental Performance Index (EPI)
+# Data preparation: Environmental Performance Index (EPI)
 
 
-# library("plyr")
 library("reshape")
 library("ggplot2")
-theme_set(theme_bw(base_size = 14) +
-            theme(rect = element_rect(fill = "transparent")))
+  theme_set(theme_bw(base_size = 14) +
+              theme(rect = element_rect(fill = "transparent")))
 
 
 ## Clear workspace, set working directory
 rm(list = ls())
-setwd("~/epi/2nd2020//")
+setwd("~/epi/2020/")
 
 
 ## Load dataset
-### Read all raw csv files containing NAs (rather than these encoded missing values¹ADD CITATION)
-epi <- lapply(list.files(pattern = glob2rx("*EPI*.csv")),
+### Read all csv files
+epi <- lapply(list.files(pattern = ".csv"),
               read.table, sep = ",", header = TRUE, quote = "")
 epi
 
-# tst <- read.table("2020-epi-Guide.csv", sep = ",", header = TRUE, quote = "")
 
+### Show data structure
 lapply(epi, head)
+lapply(epi, names)
 
 
-### Name the list
-names(epi) <- gsub(".csv", "",
-                   gsub("2020-epi-\\d_EPI_", "",
-                        list.files(pattern = glob2rx("*EPI*.csv"))))
+### Name the list by retrieving the file names and extract the informative part
+names(epi) <- gsub("\\d{8}.csv", "",
+                   gsub("epi2020", "", list.files(pattern = ".csv")))
 names(epi)
 
 
 ### Release data.frames from list into global environment
 list2env(epi, .GlobalEnv)
+rm(epi)
+
+
+### Rename to more "speaking" names
+epi <- results # EPIs by country
+tla <- indicatortla # description of EPIs
+countries <- countryattributes
+
+
+rm(results, indicatortla, countryattributes)
 
 
 ## Explore
-### Select columns by matching "new" (for the new EPI values) and a negative
-### lookbehind to exclude columns containing the new ranks. Also keep code, iso
-### and country
-tst <- grep("(?<!rnk).new|^[^.]*$", names(Results), value = TRUE, perl = TRUE)
-tst
-
-
-Results <- Results[, (colnames(Results) %in% tst), drop = FALSE]
-names(Results)
+### Subset by selecting columns which match "new" (for the 2020 EPI values) and
+### a negative lookbehind to exclude columns containing the new ranks. Also keep
+### the columns "code", "iso" and "country" (i.e. all that contain only letters)
+epi <- epi[, (colnames(epi) %in% grep("(?<!rnk).new|^[^.]*$", names(epi),
+                                      value = TRUE, perl = TRUE)), drop = FALSE]
+names(epi)
 
 
 ### Reshape
-### Convert into long form
-Results.m <- melt(Results, id.vars = c("code", "iso", "country"),
-              variable_name = "EPI")
-str(Results.m)
+### Convert into long, "molten" form
+epi.m <- melt(epi, id.vars = c("code", "iso", "country"))
+str(epi.m)
 
 
-Results.m$EPI <- as.factor(substr(Results.m$EPI, 1, 3))
-levels(Results.m$EPI)
+### Convert to factor
+epi.m$country <- as.factor(epi.m$country)
+
+
+### Remove ".new" from EPIs
+epi.m$variable <- as.factor(substr(epi.m$variable, 1, 3))
+levels(epi.m$variable)
+
+
 
 
 ###
-ggplot(data = Results.m) +
-  geom_boxplot(aes(x = country, y = value)) +
+## Sort by median
+# fac <- with(epi.m, reorder(EPI, value, median, order = TRUE))
+# epi.m$EPI <- factor(epi.m$EPI, levels = levels(fac))
+
+ggplot(iris, aes(x = Species, y = Sepal.Width)) + geom_boxplot()
+ggplot(iris, aes(x = reorder(Species, Sepal.Width, FUN = median), y = Sepal.Width)) + geom_boxplot()
+str(iris)
+
+
+str(epi.m)
+
+ggplot(epi.m, aes(x = reorder(country, value, FUN = median), y = value)) +
+  geom_boxplot() +
   # geom_point(aes(x = as.factor(year), y = value, color = EPI)) +
   # facet_grid(EPI ~ .) +
-  # scale_fill_manual(values = gradCol) +
   theme(legend.position = "top", axis.text.x = element_text(angle = 45, hjust = 1)) +
-  ylab("EPI") +
+  ylab("EPIs") +
   xlab("")
-# ggsave("../SMP_2019_Prey.pdf", width = 11.69, height = 6.27, bg = "transparent")
-
+ggsave("tst.pdf", width = 20, height = 6.27, bg = "transparent")
 
 
 
