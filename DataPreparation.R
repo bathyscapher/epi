@@ -108,7 +108,7 @@ ggplot(epi.long[epi.long$Type == "EPI", ],
   scale_fill_manual(values = cb.cols) +
   theme(legend.position = "top", legend.title = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  ylab("EPIs") +
+  ylab("EPI 2020") +
   xlab("")
 
 
