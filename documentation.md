@@ -1,4 +1,4 @@
-# NASA dataset "[2018 Environmental Performance Index (EPI)](https://data.nasa.gov/dataset/2018-Environmental-Performance-Index-EPI-/ch9t-bz36)"
+# NASA dataset "[2020 Environmental Performance Index (EPI)](https://data.nasa.gov/dataset/2018-Environmental-Performance-Index-EPI-/ch9t-bz36)"
 ## Data set choice
 1. Explored homepage structure via browsing and [watching this introductory video](https://docs.google.com/presentation/d/10xoC0N1jWOxEFwGml-Ivnn6GYxJ2_tbAZjdl7aRzaI8/edit#slide=id.g61f57fe376_0_1725)
 2. Chose the third among possibile datasets:
@@ -9,5 +9,7 @@
     
 
 ## Download
-1. Register to [EOSDIS Earthdata](https://earthdata.nasa.gov/) before data access
+1. Register to [EOSDIS Earthdata](https://earthdata.nasa.gov/) before data access or simpler, [download csv files here](https://epi.yale.edu/downloads)
 
+
+## Read and explore data
