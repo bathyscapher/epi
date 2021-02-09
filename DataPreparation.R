@@ -3,9 +3,9 @@
 # Data preparation: Environmental Performance Index (EPI)
 
 
-library("reshape")
+library("reshape2")
 library("ggplot2")
-  theme_set(theme_bw(base_size = 14) +
+  theme_set(theme_bw(base_size = 12) +
               theme(rect = element_rect(fill = "transparent")))
 
 
@@ -39,11 +39,16 @@ rm(epi)
 
 ### Rename to more "speaking" names
 epi <- results # EPIs by country
-tla <- indicatortla # description of EPIs
+tla <- indicatortla # description of EPIs = three-letter-abbreviation
 countries <- countryattributes
 
 
 rm(results, indicatortla, countryattributes)
+
+
+### Add regions
+epi <- merge(epi, countries[, 3:4], by = "country")
+str(epi)
 
 
 ## Explore
@@ -57,42 +62,54 @@ names(epi)
 
 ### Reshape
 ### Convert into long, "molten" form
-epi.m <- melt(epi, id.vars = c("code", "iso", "country"))
-str(epi.m)
+epi.long <- melt(epi, id.vars = c("code", "iso", "country", "region"),
+                 value.name = "EPI.new.value", variable.name = "EPI.new")
+str(epi.long)
 
 
 ### Convert to factor
-epi.m$country <- as.factor(epi.m$country)
+epi.long$country <- as.factor(epi.long$country)
+epi.long$region <- as.factor(epi.long$region)
 
 
 ### Remove ".new" from EPIs
-epi.m$variable <- as.factor(substr(epi.m$variable, 1, 3))
-levels(epi.m$variable)
+epi.long$EPI.new <- as.factor(substr(epi.long$EPI.new, 1, 3))
+str(epi.long)
 
 
+### Add EPI levels
+epi.long <- merge(epi.long, tla[, 1:3], by.x = "EPI.new", by.y = "Abbreviation")
 
 
-###
-## Sort by median
-# fac <- with(epi.m, reorder(EPI, value, median, order = TRUE))
-# epi.m$EPI <- factor(epi.m$EPI, levels = levels(fac))
-
-ggplot(iris, aes(x = Species, y = Sepal.Width)) + geom_boxplot()
-ggplot(iris, aes(x = reorder(Species, Sepal.Width, FUN = median), y = Sepal.Width)) + geom_boxplot()
-str(iris)
+## Explore
+### Colorblind color scheme
+cb.cols <- c("#56B4E9", "#cc79a7", "#D55E00", "#0072b2", "#E69F00", "#999999",
+             "#F0E442", "#009E73")
 
 
-str(epi.m)
-
-ggplot(epi.m, aes(x = reorder(country, value, FUN = median), y = value)) +
-  geom_boxplot() +
-  # geom_point(aes(x = as.factor(year), y = value, color = EPI)) +
-  # facet_grid(EPI ~ .) +
-  theme(legend.position = "top", axis.text.x = element_text(angle = 45, hjust = 1)) +
+### Boxplots sorted by median
+ggplot(epi.long[epi.long$Type == "Indicator", ],
+       aes(x = reorder(country, EPI.new.value, FUN = median, na.rm = TRUE),
+           y = EPI.new.value, fill = region)) +
+  geom_boxplot(outlier.shape = 21, outlier.size = 1) +
+  scale_fill_manual(values = cb.cols) +
+  theme(legend.position = "top", legend.title = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text=element_text(size = 5)) +
   ylab("EPIs") +
   xlab("")
-ggsave("tst.pdf", width = 20, height = 6.27, bg = "transparent")
+ggsave("../tst.pdf", width = 20, height = 6.27, bg = "transparent")
 
+
+ggplot(epi.long[epi.long$Type == "EPI", ],
+       aes(x = reorder(region, EPI.new.value, FUN = median, na.rm = TRUE),
+           y = EPI.new.value, fill = region)) +
+  geom_boxplot(outlier.shape = 21, outlier.size = 1) +
+  scale_fill_manual(values = cb.cols) +
+  theme(legend.position = "top", legend.title = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylab("EPIs") +
+  xlab("")
 
 
 ################################################################################
