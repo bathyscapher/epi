@@ -21,7 +21,7 @@ library("htmlwidgets")
 # Choropleth map with leaflet
 ## Download the shapefile with world borders. Note: overwrites existing files!
 if(!file.exists("TM_WORLD_BORDERS-0.3.shp")){
-  print("File not there, downloading now:")
+  print("File does not exist, downloading it now:")
   download.file("thematicmapping.org/downloads/TM_WORLD_BORDERS-0.3.zip",
                 destfile="world_shape_file.zip")
   system("unzip -u world_shape_file.zip;
@@ -29,11 +29,8 @@ if(!file.exists("TM_WORLD_BORDERS-0.3.shp")){
 }
 
 
-
 ## Read the shape file
-world_spdf <- readOGR(dsn = ".",
-                      layer = "TM_WORLD_BORDERS-0.3",
-                      verbose = FALSE)
+world_spdf <- readOGR(dsn = ".", layer = "TM_WORLD_BORDERS-0.3", verbose = TRUE)
 class(world_spdf)
 summary(world_spdf)
 
@@ -83,63 +80,61 @@ sort(setdiff(epi$country, world_spdf$NAME))
 sort(setdiff(world_spdf$NAME, epi$country))
 
 
-## Add EPI to shp file
-world_spdf <- merge(world_spdf, epi[, c(1, 4)], by.x = "NAME", by.y = "country")
+## Add EPI and regions to shp file
+world_spdf <- merge(world_spdf, epi[, c(1, 4, 50)], by.x = "NAME", by.y = "country")
+names(world_spdf)
 
 
-## Clean the data object
+## Enhance readability of population numbers
 world_spdf@data$POP2005[which(world_spdf@data$POP2005 == 0)] <- NA
 world_spdf@data$POP2005 <- as.integer(world_spdf@data$POP2005) / 1000000 %>%
   round(2)
 
 
 # Create a color palette for the map
-mypalette <- colorNumeric(palette = "viridis", domain = world_spdf@data$EPI.new,
-                          na.color = "gray")
-mypalette(c(45, 43))
+## EPI color scheme
+epi.colors <- colorNumeric(palette = "viridis", domain = world_spdf@data$EPI.new,
+                          na.color = "gray", reverse = TRUE)
+# epi.colors(c(45, 43))
 
 
-# Basic  leafletchoropleth map
-leaflet(world_spdf) %>%
-  addTiles()  %>%
-  setView(lat = 10, lng = 0, zoom = 2) %>%
-  addPolygons(fillColor = ~ mypalette(EPI.new), stroke = FALSE)
-
-
-# Color by quantile
-leaflet(world_spdf)%>%
-  addTiles() %>%
-  setView(lat = 5, lng = 0, zoom = 2) %>%
-  addPolygons(stroke = FALSE, fillOpacity = 0.5, smoothFactor = 0.5,
-               color = ~ colorQuantile("YlOrRd", EPI.new)(EPI.new))
-
-
-# Color by binning
-# mybins <- c(0, 10, 20, 50, 100, 500, Inf)
-# mypalette <- colorBin(palette = "YlOrBr", domain = world_spdf@data$POP2005,
-#                       na.color = "transparent", bins = mybins)
+## Region color scheme
+region.colors <- colorFactor(palette = "plasma",
+                             domain = world_spdf@data$region, na.color = "gray")
 
 
 # Prepare the text for tooltips
 tooltips <- paste("Country:", world_spdf@data$NAME, "<br/>",
-                  "Area:", world_spdf@data$AREA, "<br/>",
+                  "Region:", world_spdf@data$region, "<br/r>",
+                  # "Area:", world_spdf@data$AREA, "<br/>",
                   "Population:", round(world_spdf@data$POP2005, 2), "M", "<br/>",
-                  "EPI 29020:", world_spdf@data$EPI.new) %>%
+                  "EPI:", world_spdf@data$EPI.new) %>%
   lapply(htmltools::HTML)
 
 
 # The map
 m <- leaflet(world_spdf) %>%
   addTiles() %>%
-  setView(lat = 10, lng = 0, zoom = 3) %>%
-  addPolygons(fillColor = ~ mypalette(EPI.new), stroke = TRUE,
-              fillOpacity = 0.9, color = "white", weight = 0.3, label = tooltips,
+  setView(lat = 20, lng = 0, zoom = 2.5) %>%
+  addPolygons(fillColor = ~ epi.colors(EPI.new), stroke = TRUE, group = "EPI",
+              fillOpacity = 0.9, color = "white", weight = 0.5, label = tooltips,
               labelOptions = labelOptions(style = list("font-weight" = "normal",
                                                        padding = "3px 8px"),
                                           textsize = "13px",
                                           direction = "auto")) %>%
-  addLegend(pal = mypalette, values = ~ EPI.new, opacity = 0.9,
-            title = "EPI", position = "topleft")
+  addPolygons(fillColor = ~ region.colors(region), stroke = TRUE, group = "Region",
+              fillOpacity = 0.5, color = "white", weight = 0.5, label = tooltips,
+              labelOptions = labelOptions(style = list("font-weight" = "normal",
+                                                       padding = "3px 8px"),
+                                          textsize = "13px",
+                                          direction = "auto")) %>%
+  addLegend(pal = epi.colors, values = ~ EPI.new, opacity = 0.9,
+            title = "EPI", position = "topleft", group = "EPI") %>%
+  addLegend(pal = region.colors, values = ~ region, opacity = 0.5,
+            title = "", position = "topleft", group = "Region") %>%
+  addLayersControl(overlayGroups = c("EPI", "Region"),
+                   options = layersControlOptions(collapsed = FALSE)) %>%
+  hideGroup("Region")
 m
 
 
