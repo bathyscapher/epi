@@ -12,15 +12,15 @@
 1. To visualize the EPIs as a choropleth map, download [world's country borders](thematicmapping.org/downloads/TM_WORLD_BORDERS-0.3.zip).
 
 
-## Read and explore data
-1. Read all the csv files and merge the components of interest into one data.frame (`epi`).
+## Read, explore and visualize data
+1. Read all the csv files and merge the components of interest into one data.frame (`epi`)
+1. Plot some overviews over the EPIs with `ggplot2`
 1. Collate country naming
 1. Create choropleth map with [`R leaflet`](https://cran.r-project.org/web/packages/leaflet/index.html)
-1. Plot some overviews over the EPIs with `ggplot2`
 
 
 ## To do
-1. Unify this in a [blogdown website](https://cran.r-project.org/web/packages/blogdown/index.html)
+1. Unify all graphs in a [blogdown website](https://cran.r-project.org/web/packages/blogdown/index.html)
 1. Add a [structural equation model](https://en.wikipedia.org/wiki/Structural_equation_modeling) of the EPIs and explanatory variables (EPIs, region etc)
 1. Create a gif of EPIs over time
 
