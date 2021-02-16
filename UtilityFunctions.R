@@ -5,8 +5,8 @@
 require("reshape2")
 
 
-# rm(list = ls())
-# setwd("~/epi")
+rm(list = ls())
+setwd("~/epi")
 
 
 ## Import EPI data
@@ -18,7 +18,7 @@ importEPI <- function(){
      !file.exists("2020/epi2020variableattributes20200604.csv")) {
     "Files absent, downloading them now:"
     system("wget -P 2020 https://epi.yale.edu/downloads/epi2020results20200604.csv https://epi.yale.edu/downloads/epi2020indicatortla20200604.csv https://epi.yale.edu/downloads/epi2020countryattributes20200604.csv https://epi.yale.edu/downloads/epi2020variableattributes20200604.csv")
-  }
+    }
 
 
   # Read all csv files
@@ -45,16 +45,23 @@ importEPI <- function(){
 
   # Rename to more "speaking" names
   epi <- results # EPIs by country
-  tla <- indicatortla # description of EPIs = three-letter-abbreviation
-  countries <- countryattributes
-
-  rm(results, indicatortla, countryattributes, variableattributes,
-     envir = .GlobalEnv)
+  rm(results, envir = .GlobalEnv)
 
 
   # Add regions
-  epi <- merge(epi, countries[, 3:4], by = "country")
+  epi <- merge(epi, countryattributes[, 3:4], by = "country")
   # str(epi)
+
+
+  ## Add GDP
+  if(!file.exists("2020/api.worldbank.org/v2/en/indicator/NY.GDP.MKTP.CD?downloadformat=csv")) {
+    "File absent, downloading it now:"
+    system("wget -P 2020 api.worldbank.org/v2/en/indicator/NY.GDP.MKTP.CD?downloadformat=csv")
+  }
+
+
+
+
 
 
   # Subset by selecting columns which match "new" (for the 2020 EPI values) and
@@ -84,7 +91,7 @@ importEPI <- function(){
 
 
   ## Add EPI levels
-  epi.long <- merge(epi.long, tla[, 1:3],
+  epi.long <- merge(epi.long, indicatortla[, 1:3],
                     by.x = "EPI.new", by.y = "Abbreviation")
 
   epi.list <- list(epi = epi, epi.long = epi.long)

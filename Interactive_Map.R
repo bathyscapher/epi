@@ -141,34 +141,51 @@ saveWidget(cp.map, file = "index.html")
 
 ## Explore
 ### Colorblind color scheme
-cb.cols <- c("#56B4E9", "#cc79a7", "#D55E00", "#0072b2", "#E69F00", "#999999",
-             "#F0E442", "#009E73")
+# cb.cols <- c("#56B4E9", "#cc79a7", "#D55E00", "#0072b2", "#E69F00", "#999999",
+#              "#F0E442", "#009E73")
+
+unique(region.cols(world.spdf$region))
+
+cols.region <- c("#0D0887", "#5402A3", "#8B0AA5", "#B93289", "#DB5C68",
+                 "#F48849", "#FEBC2A", "#F0F921")
 
 
 ### Boxplots sorted by median
 ggplot(epi.long[epi.long$Type == "Indicator", ],
        aes(x = reorder(country, EPI.new.value, FUN = median, na.rm = TRUE),
            y = EPI.new.value, fill = region)) +
-  geom_boxplot(outlier.shape = 21, outlier.size = 1) +
-  scale_fill_manual(values = cb.cols) +
+  geom_boxplot(outlier.shape = 21, outlier.size = 1, alpha = 0.5) +
+  scale_fill_manual(values = cols.region) +
   theme(legend.position = "top", legend.title = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1),
         axis.text = element_text(size = 5)) +
-  ylab("EPIs") +
+  ylab("2020 EPIs") +
   xlab("")
-ggsave("tst.pdf", width = 20, height = 6.27, bg = "transparent")
+ggsave("nations.pdf", width = 20, height = 8.27, bg = "transparent")
+system("pdfcrop nations.pdf nations.pdf")
 
 
 ggplot(epi.long[epi.long$Type == "EPI", ],
        aes(x = reorder(region, EPI.new.value, FUN = median, na.rm = TRUE),
            y = EPI.new.value, fill = region)) +
-  geom_boxplot(outlier.shape = 21, outlier.size = 1) +
-  scale_fill_manual(values = cb.cols) +
-  theme(legend.position = "top", legend.title = element_blank(),
+  geom_boxplot(outlier.shape = 21, outlier.size = 1, alpha = 0.5) +
+  scale_fill_manual(values = cols.region) +
+  theme(legend.position = "none",
         axis.text.x = element_text(angle = 45, hjust = 1)) +
-  ylab("EPI 2020") +
+  ylim(0, 100) +
+ ylab("2020 EPI") +
   xlab("")
-ggsave("tst_region.pdf", width = 20, height = 6.27, bg = "transparent")
+ggsave("regions.pdf", width = 11.29, height = 6.27, bg = "transparent")
+system("pdfcrop regions.pdf regions.pdf")
+
+
+### EPI vs GDP
+
+
+
+### Structural equation model
+
+
 
 
 ################################################################################
