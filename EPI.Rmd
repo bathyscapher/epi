@@ -1,0 +1,325 @@
+---
+title: "Visualization of the 2020 Environmental Performance Index (EPI)"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+header-includes:
+   - \usepackage{svg}
+editor_options:
+  chunk_output_type: console
+---
+
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = "hide")
+```
+
+
+# Load libraries
+```{r, message = 'hide', results = 'hide'}
+library("reshape2")
+library("ggplot2")
+theme_set(theme_bw(base_size = 12) +
+            theme(rect = element_rect(fill = "transparent")))
+library("leaflet")
+library("rgdal")
+library("htmlwidgets")
+library("lavaan")
+library("lavaanPlot")
+```
+
+
+# Read data
+## Clear workspace, set working directory
+```{r}
+rm(list = ls())
+setwd("~/epi")
+```
+
+
+## Load helper functions
+These helper functions retrieve, read and process data.
+```{r}
+source("UtilityFunctions.R")
+```
+
+
+## Import EPI data
+Run the helper function `importEPI()` and release the contents of the resulting list into the global environment.
+```{r}
+epi.list <- importEPI()
+
+list2env(epi.list, .GlobalEnv)
+rm(epi.list)
+```
+
+
+## Retrieve world borders
+Download the shape file, if it is absent. *Note*: overwrites existing files!
+```{r}
+if(!file.exists("2020/TM_WORLD_BORDERS-0.3.shp")){
+  print("File does not exist, downloading it now:")
+  download.file("thematicmapping.org/downloads/TM_WORLD_BORDERS-0.3.zip",
+                destfile="world_shape_file.zip")
+  system("unzip -u world_shape_file.zip;
+         rm world_shape_file.zip Readme.txt")
+  }
+```
+
+
+The, read this shape file into a `SpatialPolygonsDataFrame`.
+```{r}
+world.spdf <- readOGR(dsn = "2020", layer = "TM_WORLD_BORDERS-0.3",
+                      verbose = TRUE)
+summary(world.spdf)
+```
+
+
+## Collate countries and their names
+Unfortunately, as soon as it comes to map the world, geopolitics come to the fore.
+This is reflected in the mismatches between country lists due to the different recognition statuses of these countries.
+
+For one, there are distinctly more countries in the shp file:
+```{r}
+length(world.spdf$NAME) 
+length(epi$country)
+```
+
+
+These mismatches stem mainly from different naming schemes.
+```{r}
+sort(setdiff(world.spdf$NAME, epi$country))
+sort(setdiff(epi$country, world.spdf$NAME))
+```
+
+
+Now, collate the naming schemes between the `epi` data.frame and the `world.spdf` SpatialPolygonsDataFrame with the helper function `collateCountryNames()`.
+```{r}
+epi.world.spdf <- collateCountryNames(epi, world.spdf)
+list2env(epi.world.spdf, .GlobalEnv)
+rm(epi.world.spdf)
+```
+
+
+Lastly, control if all EPI countries are present in the world map...
+```{r}
+sort(setdiff(epi$country, world.spdf$NAME))
+```
+... as the set difference is now equal to zero (i.e., all items in `epi$country` are present also in `world.spdf$NAME`).
+
+
+
+Countries without an EPI are miniature states, islands or states currently in an armed conflict (some of the island belong to a nation; e.g., Greenland to Denkmark and Svalbard to Norway. For now, keep it as is and later, these islands could possibly be merged into their mainlands).
+
+```{r}
+sort(setdiff(world.spdf$NAME, epi$country))
+```
+
+
+
+## Add EPI and regions to sp file
+```{r}
+world.spdf <- merge(world.spdf,
+                    epi[, (colnames(epi) %in% c("country", "EPI.new", "region",
+                                                "X2019"))], 
+                    by.x = "NAME", by.y = "country")
+names(world.spdf)
+```
+
+
+
+## Encode population numbers as millions
+```{r}
+world.spdf@data$POP2005[which(world.spdf@data$POP2005 == 0)] <- NA
+world.spdf@data$POP2005 <- as.integer(world.spdf@data$POP2005) / 1000000 %>%
+  round(2)
+```
+
+
+# Choropleth map with leaflet
+## Create a color palette for the map
+The EPI color scheme:
+```{r}
+epi.cols <- colorNumeric(palette = "viridis", domain = world.spdf@data$EPI.new,
+                         na.color = "gray", reverse = TRUE)
+```
+
+
+
+The region color scheme:
+```{r}
+region.cols <- colorFactor(palette = "plasma", domain = world.spdf@data$region,
+                           na.color = "gray")
+```
+
+
+
+## Prepare the text for tooltips
+```{r}
+tooltips <- paste("Country:", world.spdf@data$NAME, "<br/>",
+                  "Region:", world.spdf@data$region, "<br/r>",
+                  # "Area:", world.spdf@data$AREA, "<br/>",
+                  "Population:", round(world.spdf@data$POP2005, 2), "M",
+                  "<br/>",
+                  "EPI:", world.spdf@data$EPI.new) %>%
+  lapply(htmltools::HTML)
+```
+
+
+
+## Render map
+```{r}
+cp.map <- leaflet(world.spdf) %>%
+  addTiles() %>%
+  setView(lat = 20, lng = 0, zoom = 2.5) %>%
+  addPolygons(fillColor = ~ epi.cols(EPI.new), stroke = TRUE, group = "EPI",
+              fillOpacity = 0.9, color = "white", weight = 0.5,
+              label = tooltips,
+              labelOptions = labelOptions(style = list("font-weight" = "normal",
+                                                       padding = "3px 8px"),
+                                          textsize = "13px",
+                                          direction = "auto")) %>%
+  addPolygons(fillColor = ~ region.cols(region), stroke = TRUE,
+              group = "Region", fillOpacity = 0.5, color = "white",
+              weight = 0.5, label = tooltips,
+              labelOptions = labelOptions(style = list("font-weight" = "normal",
+                                                       padding = "3px 8px"),
+                                          textsize = "13px",
+                                          direction = "auto")) %>%
+  addLegend(pal = epi.cols, values = ~ EPI.new, opacity = 0.9,
+            title = "EPI", position = "topleft", group = "EPI") %>%
+  addLegend(pal = region.cols, values = ~ region, opacity = 0.5,
+            title = "", position = "topleft", group = "Region") %>%
+  addLayersControl(overlayGroups = c("EPI", "Region"),
+                   options = layersControlOptions(collapsed = FALSE)) %>%
+  hideGroup("Region")
+cp.map
+```
+
+
+
+## Export map to html
+This takes some time, so only run it if needed.
+```{r}
+# saveWidget(cp.map, file = "index.html")
+```
+
+
+# Analysis
+## Color scale for plotting
+```{r}
+cols.region <- c("#0D0887", "#5402A3", "#8B0AA5", "#B93289", "#DB5C68",
+                 "#F48849", "#FEBC2A", "#F0F921")
+```
+
+
+## National comparison
+The 32 performance indicators are displayed by country in boxplots sorted by their median and colored by region.
+```{r, fig.width = 15}
+ggplot(epi.long[epi.long$Type == "Indicator", ],
+       aes(x = reorder(country, EPI.new.value, FUN = median, na.rm = TRUE),
+           y = EPI.new.value, fill = region)) +
+  geom_boxplot(outlier.shape = 21, outlier.size = 1, alpha = 0.5) +
+  scale_fill_manual(values = cols.region) +
+  theme(legend.position = "top", legend.title = element_blank(),
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        axis.text = element_text(size = 5)) +
+  ylab("2020 EPIs") +
+  xlab("")
+# ggsave("EPI_nations.pdf", width = 20, height = 8.27, bg = "transparent")
+```
+
+An ordering according to region is apparent. So, let's have a closer look onto these regions.
+
+
+## Regional comparison
+This time, the 32 performance indicators are pooled by region and are displayed in boxplots sorted by their median and colored by region.
+
+```{r}
+ggplot(epi.long[epi.long$Type == "EPI", ],
+       aes(x = reorder(region, EPI.new.value, FUN = median, na.rm = TRUE),
+           y = EPI.new.value, fill = region)) +
+  geom_boxplot(outlier.shape = 21, outlier.size = 1, alpha = 0.5) +
+  scale_fill_manual(values = cols.region) +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, 100) +
+  ylab("2020 EPI") +
+  xlab("")
+# ggsave("EPI_regions.pdf", width = 11.29, height = 6.27, bg = "transparent")
+```
+
+
+## EPI vs GDP
+```{r}
+ggplot(epi.long[epi.long$Type == "EPI", ],
+       aes(x = log(X2019 / 1000000), y = EPI.new.value, fill = region)) +
+  geom_smooth(aes(group = 1), color = "gray", lty = 2,
+              method = "lm", formula = y ~ x, se = FALSE, show.legend = FALSE) +
+  geom_point(alpha = 0.5, pch = 21) +
+  scale_color_manual(values = cols.region) +
+  theme(legend.position = "top", legend.title = element_blank()) +
+  ylim(0, 100) +
+  ylab("2020 EPI") +
+  xlab(expression(paste(log[e], "(2019 GDP)", " [US$]")))
+# ggsave("EPI_GDP.pdf", width = 11.29, height = 6.27, bg = "transparent")
+```
+
+
+# Structural equation model
+In a structural equation model ...
+
+## Merge datasets
+```{r}
+epi <- merge(epi,
+             world.spdf[, (names(world.spdf) %in% c("ISO3", "AREA",
+                                                    "POP2005", "LAT"))],
+             by.x = "iso", by.y = "ISO3")
+names(epi)
+str(epi)
+```
+
+
+## Scale the variables
+```{r}
+epi[, c(4, 51:54)] <- apply(epi[, c(4, 51:54)], 2, scale)
+```
+
+
+## Specify the model
+```{r}
+epi.gdp <- 'EPI.new ~ X2019 + POP2005 + LAT
+  X2019 ~ LAT + POP2005
+  POP2005 ~ AREA'
+```
+
+
+## Run the model and inspect the results
+```{r}
+fit.epi.gdp <- sem(epi.gdp, data = epi)
+summary(fit.epi.gdp, rsq = TRUE)
+```
+
+
+## Inspect modification indices
+The modification indices suggest--among others--that there is an unspecified cause that drives GDP and population numbers. In SEM, this unspecified result is modeled by a correlation and encoded with this double tilde `~~`.
+```{r}
+modificationindices(fit.epi.gdp, minimum.value = 3)
+fit.epi.gdp.up <- update(fit.epi.gdp, add = "X2019 ~~ POP2005")
+summary(fit.epi.gdp.up, rsq = TRUE)
+```
+
+
+## Visualize the model
+```{r}
+lavaanPlot(model = fit.epi.gdp.up,
+           node_options = list(shape = "box", color = "gray",
+                               fontname = "Helvetica"),
+           edge_options = list(color = "black"),
+           coefs = TRUE, covs = TRUE, stars = c("covs", "regress"),
+           labels = list(AREA = "Area", POP2005 = "Population", X2019 = "GDP",
+                         LAT = "Latitude", EPInew = "EPI"))
+```
+
+

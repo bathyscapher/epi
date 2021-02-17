@@ -221,8 +221,20 @@ summary(fit.epi.gdp, rsq = TRUE)
 
 
 modificationindices(fit.epi.gdp, minimum.value = 3)
-fit.epi.gdp.up <- update(fit.epi.gdp.up, add = "X2019 ~~ POP2005")
+fit.epi.gdp.up <- update(fit.epi.gdp, add = "X2019 ~~ POP2005")
 summary(fit.epi.gdp.up, rsq = TRUE)
+
+
+library("lavaanPlot")
+
+
+lavaanPlot(model = fit.epi.gdp.up,
+           node_options = list(shape = "box", color = "gray",
+                               fontname = "Helvetica"),
+           edge_options = list(color = "black"),
+           coefs = TRUE, covs = TRUE, stars = c("covs", "regress"),
+           labels = list(AREA = "Area", POP2005 = "Population", X2019 = "GDP",
+                         LAT = "Latitude", EPInew = "EPI"))
 
 
 ################################################################################
