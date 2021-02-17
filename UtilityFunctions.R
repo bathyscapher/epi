@@ -53,15 +53,21 @@ importEPI <- function(){
   # str(epi)
 
 
-  ## Add GDP
-  if(!file.exists("2020/api.worldbank.org/v2/en/indicator/NY.GDP.MKTP.CD?downloadformat=csv")) {
+  ## Add GDP from worldbank
+  if(!file.exists("2020/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_2017804.csv")) {
     "File absent, downloading it now:"
-    system("wget -P 2020 api.worldbank.org/v2/en/indicator/NY.GDP.MKTP.CD?downloadformat=csv")
+    system("wget -O 2020/wb_gdp.zip 'http://api.worldbank.org/v2/en/indicator/NY.GDP.MKTP.CD?downloadformat=csv' && unzip -d 2020 2020/wb_gdp.zip && rm 2020/wb_gdp.zip")
   }
 
+  gdp <- read.table("2020/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_2017804.csv",
+                    header = TRUE, sep = ",", skip = 4)
+  gdp <- gdp[, (colnames(gdp) %in% c("Country.Name", "Country.Code", "X2019"))]
 
+  ## Match country iso codes and add GDP to EPI data.frame
+  setdiff(epi$iso, gdp$Country.Code) # Taiwan is missing in the world bank data
 
-
+  epi <- merge(epi, gdp, by.x = "iso", by.y = "Country.Code")
+  names(epi)
 
 
   # Subset by selecting columns which match "new" (for the 2020 EPI values) and
@@ -74,10 +80,10 @@ importEPI <- function(){
 
 
   # Convert into long form
-  epi.long <- melt(epi, id.vars = c("code", "iso", "country", "region"),
-                   value.name = "EPI.new.value", variable.name = "EPI.new")
+  epi.long <- melt(epi, value.name = "EPI.new.value", variable.name = "EPI.new",
+                   id.vars = c("code", "iso", "country", "region", "X2019"))
   # str(epi.long)
-  summary(epi.long$EPI.new.value)
+  # summary(epi.long$EPI.new.value)
 
 
   # Convert to factor

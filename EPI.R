@@ -136,16 +136,10 @@ cp.map
 
 
 # Export to html
-saveWidget(cp.map, file = "index.html")
+# saveWidget(cp.map, file = "index.html")
 
 
 ## Explore
-### Colorblind color scheme
-# cb.cols <- c("#56B4E9", "#cc79a7", "#D55E00", "#0072b2", "#E69F00", "#999999",
-#              "#F0E442", "#009E73")
-
-unique(region.cols(world.spdf$region))
-
 cols.region <- c("#0D0887", "#5402A3", "#8B0AA5", "#B93289", "#DB5C68",
                  "#F48849", "#FEBC2A", "#F0F921")
 
@@ -161,8 +155,8 @@ ggplot(epi.long[epi.long$Type == "Indicator", ],
         axis.text = element_text(size = 5)) +
   ylab("2020 EPIs") +
   xlab("")
-ggsave("nations.pdf", width = 20, height = 8.27, bg = "transparent")
-system("pdfcrop nations.pdf nations.pdf")
+# ggsave("EPI_nations.pdf", width = 20, height = 8.27, bg = "transparent")
+# system("pdfcrop nations.pdf nations.pdf")
 
 
 ggplot(epi.long[epi.long$Type == "EPI", ],
@@ -175,16 +169,38 @@ ggplot(epi.long[epi.long$Type == "EPI", ],
   ylim(0, 100) +
  ylab("2020 EPI") +
   xlab("")
-ggsave("regions.pdf", width = 11.29, height = 6.27, bg = "transparent")
-system("pdfcrop regions.pdf regions.pdf")
+ggsave("EPI_regions.pdf", width = 11.29, height = 6.27, bg = "transparent")
+# system("pdfcrop regions.pdf regions.pdf")
 
 
 ### EPI vs GDP
-
+ggplot(epi.long[epi.long$Type == "EPI", ],
+       aes(x = log(X2019 / 1000000), y = EPI.new.value, fill = region)) +
+  geom_smooth(aes(group = 1), color = "gray", lty = 2,
+              method = "lm", formula = y ~ x, se = FALSE, show.legend = FALSE) +
+  geom_point(alpha = 0.5, pch = 21) +
+  scale_color_manual(values = cols.region) +
+  theme(legend.position = "top", legend.title = element_blank()) +
+  ylim(0, 100) +
+  ylab("2020 EPI") +
+  xlab(expression(paste(log[e], "(2019 GDP)", " [US$]")))
+# ggsave("EPI_GDP.pdf", width = 11.29, height = 6.27, bg = "transparent")
 
 
 ### Structural equation model
+library("lavaan")
 
+
+epi <- merge(epi, world.spdf[, c(3, 6:7, 11)], by.x = "iso", by.y = "ISO3")
+
+
+epi.gdp <-
+'EPI.new ~ X2019 + POP2005 + LAT
+X2019 ~ LAT'
+
+
+fit.epi.gdp <- sem(epi.gdp, data = epi)
+summary(fit.epi.gdp)
 
 
 
