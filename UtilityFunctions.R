@@ -45,7 +45,6 @@ importEPI <- function(){
 
   # Rename to more "speaking" names
   epi <- results # EPIs by country
-  rm(results, envir = .GlobalEnv)
 
 
   # Add regions
@@ -99,6 +98,12 @@ importEPI <- function(){
   ## Add EPI levels
   epi.long <- merge(epi.long, indicatortla[, 1:3],
                     by.x = "EPI.new", by.y = "Abbreviation")
+
+
+  ## Clean workspace
+  rm(results, countryattributes, variableattributes, indicatortla,
+     envir = .GlobalEnv)
+
 
   epi.list <- list(epi = epi, epi.long = epi.long)
   return(epi.list)

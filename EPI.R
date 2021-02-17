@@ -47,6 +47,10 @@ class(world.spdf)
 summary(world.spdf)
 
 
+# ## Convert population from character into integer
+# world.spdf$POP2005 <- as.integer(world.spdf$POP2005)
+
+
 ### Collate countries and their names (as soon as it comes to map the world,
 ### geopolitics come to the fore...)
 length(world.spdf$NAME) # many more countries in the shp file
@@ -74,9 +78,10 @@ sort(setdiff(epi$country, world.spdf$NAME))
 sort(setdiff(world.spdf$NAME, epi$country))
 
 
-### Add EPI and regions to shp file
-world.spdf <- merge(world.spdf, epi[, c(1, 4, 50)], by.x = "NAME",
-                    by.y = "country")
+### Add EPI and regions to sp file
+world.spdf <- merge(world.spdf,
+                    epi[, (colnames(epi) %in% c("country", "EPI.new", "region",
+                    "X2019"))], by.x = "NAME", by.y = "country")
 names(world.spdf)
 
 
@@ -169,7 +174,7 @@ ggplot(epi.long[epi.long$Type == "EPI", ],
   ylim(0, 100) +
  ylab("2020 EPI") +
   xlab("")
-ggsave("EPI_regions.pdf", width = 11.29, height = 6.27, bg = "transparent")
+# ggsave("EPI_regions.pdf", width = 11.29, height = 6.27, bg = "transparent")
 # system("pdfcrop regions.pdf regions.pdf")
 
 
@@ -191,17 +196,33 @@ ggplot(epi.long[epi.long$Type == "EPI", ],
 library("lavaan")
 
 
-epi <- merge(epi, world.spdf[, c(3, 6:7, 11)], by.x = "iso", by.y = "ISO3")
+epi <- merge(epi,
+             world.spdf[, (names(world.spdf) %in% c("ISO3", "AREA",
+                                                    "POP2005", "LAT"))],
+             by.x = "iso", by.y = "ISO3")
+names(epi)
+str(epi)
+
+
+epi[, c(4, 51:54)] <- apply(epi[, c(4, 51:54)], 2, scale)
+
+
+
 
 
 epi.gdp <-
 'EPI.new ~ X2019 + POP2005 + LAT
-X2019 ~ LAT'
+X2019 ~ LAT + POP2005
+POP2005 ~ AREA'
 
 
 fit.epi.gdp <- sem(epi.gdp, data = epi)
-summary(fit.epi.gdp)
+summary(fit.epi.gdp, rsq = TRUE)
 
+
+modificationindices(fit.epi.gdp, minimum.value = 3)
+fit.epi.gdp.up <- update(fit.epi.gdp.up, add = "X2019 ~~ POP2005")
+summary(fit.epi.gdp.up, rsq = TRUE)
 
 
 ################################################################################
