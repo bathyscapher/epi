@@ -9,7 +9,8 @@
 
 ## Download data
 1. Register to [EOSDIS Earthdata](https://earthdata.nasa.gov/) before data access or--as discovered later--simpler, [download csv files here](https://epi.yale.edu/downloads)
-1. To visualize the EPIs as a choropleth map, download [world's country borders](thematicmapping.org/downloads/TM_WORLD_BORDERS-0.3.zip).
+1. To visualize the EPIs as a choropleth map, download [world's country borders](thematicmapping.org/downloads/TM_WORLD_BORDERS-0.3.zip)
+1. Add [gross domestic product (GDP) from the World Bank](http://api.worldbank.org/v2/en/indicator/NY.GDP.MKTP.CD?downloadformat=csv)
 
 
 ## Read, explore and visualize data
@@ -17,11 +18,11 @@
 1. Plot some overviews over the EPIs with `ggplot2`
 1. Collate country naming
 1. Create choropleth map with [`R leaflet`](https://cran.r-project.org/web/packages/leaflet/index.html)
+1. Add a [structural equation model](https://en.wikipedia.org/wiki/Structural_equation_modeling) of the EPIs and explanatory variables (EPIs, region etc)
 
 
 ## To do
-1. Unify all graphs in a [blogdown website](https://cran.r-project.org/web/packages/blogdown/index.html)
-1. Add a [structural equation model](https://en.wikipedia.org/wiki/Structural_equation_modeling) of the EPIs and explanatory variables (EPIs, region etc)
+1. Display all results in a [blogdown/](https://cran.r-project.org/web/packages/blogdown/index.html) [Hugo website](https://gohugo.io/)
 1. Create a gif of EPIs over time
 
 
