@@ -41,5 +41,5 @@ design:
 ---
 
 
-<iframe seamless src="/static/leaflet/index.html" width="100%" height="500"></iframe>
+<script> alert('Hallo Rachel!'); </script>
 

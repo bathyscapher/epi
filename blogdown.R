@@ -1,6 +1,8 @@
 library("blogdown")
 
 
+rm(list = ls())
+
 # blogdown::install_hugo(force = TRUE)
 
 
