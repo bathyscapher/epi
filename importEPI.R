@@ -36,7 +36,7 @@ importEPI <- function(){
 
   # Release data.frames from list into global environment
   list2env(epi, .GlobalEnv)
-  rm(epi, envir = .GlobalEnv)
+  # rm(epi, envir = .GlobalEnv)
 
 
   # Rename to more "speaking" name
@@ -103,7 +103,7 @@ importEPI <- function(){
 
   epi.list <- list(epi = epi, epi.long = epi.long)
   return(epi.list)
-}
+  }
 
 
 ################################################################################
