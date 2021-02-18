@@ -1,0 +1,9 @@
+base
+reshape2
+ggplot2
+leaflet
+sp
+rgdal
+htmlwidgets
+lavaan
+lavaanPlot

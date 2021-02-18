@@ -1,14 +1,17 @@
 ---
-title: "Visualization of the 2020 Environmental Performance Index (EPI)"
+title: "2020 Environmental Performance Index (EPI)"
+author:
+  Rachel Korn
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
     toc: true
     toc_float: true
-header-includes:
-   - \usepackage{svg}
 editor_options:
   chunk_output_type: console
 ---
+
+"The 2020 Environmental Performance Index (EPI) provides a data-driven summary of the state of sustainability around the world. Using 32 performance indicators across 11 issue categories, the EPI ranks 180 countries on environmental health and ecosystem vitality. These indicators provide a gauge at a national scale of how close countries are to established environmental policy targets. The EPI offers a scorecard that highlights leaders and laggards in environmental performance and provides practical guidance for countries that aspire to move toward a sustainable future." -- [2020 Environmental Performance Index](https://epi.yale.edu/)
 
 
 ```{r setup, include = FALSE}
@@ -17,7 +20,7 @@ knitr::opts_chunk$set(echo = TRUE, message = "hide")
 
 
 # Load libraries
-```{r, message = 'hide', results = 'hide'}
+```{r, message = FALSE, results = "hide", warning = FALSE}
 library("reshape2")
 library("ggplot2")
 theme_set(theme_bw(base_size = 12) +
@@ -41,13 +44,13 @@ setwd("~/epi")
 ## Load helper functions
 These helper functions retrieve, read and process data.
 ```{r}
-source("UtilityFunctions.R")
+source("importEPI.R")
 ```
 
 
 ## Import EPI data
 Run the helper function `importEPI()` and release the contents of the resulting list into the global environment.
-```{r}
+```{r, collapse = TRUE}
 epi.list <- importEPI()
 
 list2env(epi.list, .GlobalEnv)
@@ -55,8 +58,8 @@ rm(epi.list)
 ```
 
 
-## Retrieve world borders
-Download the shape file, if it is absent. *Note*: overwrites existing files!
+## Download world borders
+Download the shape file, if it is absent. *Note*, this overwrites existing files!
 ```{r}
 if(!file.exists("2020/TM_WORLD_BORDERS-0.3.shp")){
   print("File does not exist, downloading it now:")
@@ -68,7 +71,7 @@ if(!file.exists("2020/TM_WORLD_BORDERS-0.3.shp")){
 ```
 
 
-The, read this shape file into a `SpatialPolygonsDataFrame`.
+Then, read this shape file into a `SpatialPolygonsDataFrame` and inspect it.
 ```{r}
 world.spdf <- readOGR(dsn = "2020", layer = "TM_WORLD_BORDERS-0.3",
                       verbose = TRUE)
@@ -76,60 +79,49 @@ summary(world.spdf)
 ```
 
 
-## Collate countries and their names
+## Collate countries
 Unfortunately, as soon as it comes to map the world, geopolitics come to the fore.
 This is reflected in the mismatches between country lists due to the different recognition statuses of these countries.
+Luckily, an [ISO standard exists](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-3) that allocates a unique 3-letter code to every country.
+
 
 For one, there are distinctly more countries in the shp file:
-```{r}
+
+```{r, collapse = TRUE}
 length(world.spdf$NAME) 
 length(epi$country)
 ```
 
 
-These mismatches stem mainly from different naming schemes.
-```{r}
-sort(setdiff(world.spdf$NAME, epi$country))
-sort(setdiff(epi$country, world.spdf$NAME))
-```
-
-
-Now, collate the naming schemes between the `epi` data.frame and the `world.spdf` SpatialPolygonsDataFrame with the helper function `collateCountryNames()`.
-```{r}
-epi.world.spdf <- collateCountryNames(epi, world.spdf)
-list2env(epi.world.spdf, .GlobalEnv)
-rm(epi.world.spdf)
-```
-
-
-Lastly, control if all EPI countries are present in the world map...
-```{r}
-sort(setdiff(epi$country, world.spdf$NAME))
-```
-... as the set difference is now equal to zero (i.e., all items in `epi$country` are present also in `world.spdf$NAME`).
-
-
-
-Countries without an EPI are miniature states, islands or states currently in an armed conflict (some of the island belong to a nation; e.g., Greenland to Denkmark and Svalbard to Norway. For now, keep it as is and later, these islands could possibly be merged into their mainlands).
-
+These mismatches stem mainly from different naming schemes...
 ```{r}
 sort(setdiff(world.spdf$NAME, epi$country))
 ```
 
+... but also from the fact that the EPI is missing for some countries.
+Countries without an EPI are mostly miniature states (e.g. Monaco, Liechtenstein or Andorra), states currently in a(n) (armed) conflict (Syria, Palestine or Taiwan) or several islands states.
+Some of these islands actually belong to a nation; e.g., Greenland to Denkmark and Svalbard to Norway (for now, keep it as is although it would be reasonable to merge these islands with their mainlands).
+
+```{r}
+sort(setdiff(epi$country, world.spdf$NAME))
+```
 
 
-## Add EPI and regions to sp file
+## Merge datasets
+Now, merge the `epi` data.frame and the `world.spdf` SpatialPolygonsDataFrame by the country ISO-3 so that the latter holds all relevant information to render the map.
+
 ```{r}
 world.spdf <- merge(world.spdf,
-                    epi[, (colnames(epi) %in% c("country", "EPI.new", "region",
+                    epi[, (colnames(epi) %in% c("iso", "EPI.new", "region",
                                                 "X2019"))], 
-                    by.x = "NAME", by.y = "country")
+                    by.x = "ISO3", by.y = "iso")
 names(world.spdf)
 ```
 
 
 
-## Encode population numbers as millions
+## Encode population numbers
+For readability, population numbers are encoded as millions (M) and for meaningfulness, as numbers instead of characters. 
 ```{r}
 world.spdf@data$POP2005[which(world.spdf@data$POP2005 == 0)] <- NA
 world.spdf@data$POP2005 <- as.integer(world.spdf@data$POP2005) / 1000000 %>%
@@ -137,28 +129,33 @@ world.spdf@data$POP2005 <- as.integer(world.spdf@data$POP2005) / 1000000 %>%
 ```
 
 
-# Choropleth map with leaflet
-## Create a color palette for the map
-The EPI color scheme:
+# Choropleth map
+Now, let's render an interactive map with [R leaflet](https://cran.r-project.org/web/packages/leaflet/index.html) to display the EPI on the globe.
+
+
+## Color palette
+First, create a gradient color scheme for the EPI:
 ```{r}
 epi.cols <- colorNumeric(palette = "viridis", domain = world.spdf@data$EPI.new,
                          na.color = "gray", reverse = TRUE)
 ```
 
 
-
-The region color scheme:
+An then a discrete color scheme for the regions:
 ```{r}
 region.cols <- colorFactor(palette = "plasma", domain = world.spdf@data$region,
                            na.color = "gray")
 ```
 
 
+## Tooltips
+These tooltips emerge when hovering over the html-ified map showing some data of the country under the mouse pointer.
 
-## Prepare the text for tooltips
 ```{r}
 tooltips <- paste("Country:", world.spdf@data$NAME, "<br/>",
                   "Region:", world.spdf@data$region, "<br/r>",
+                  "GDP:", round(world.spdf@data$X2019 / 1000000000, digits = 1),
+                  "B US$", "<br/r>",
                   # "Area:", world.spdf@data$AREA, "<br/>",
                   "Population:", round(world.spdf@data$POP2005, 2), "M",
                   "<br/>",
@@ -169,10 +166,11 @@ tooltips <- paste("Country:", world.spdf@data$NAME, "<br/>",
 
 
 ## Render map
+Finally, use the previous steps to generate a leaflet choropleth map.
 ```{r}
-cp.map <- leaflet(world.spdf) %>%
+epi.map <- leaflet(world.spdf) %>%
   addTiles() %>%
-  setView(lat = 20, lng = 0, zoom = 2.5) %>%
+  setView(lat = 20, lng = 0, zoom = 1.5) %>%
   addPolygons(fillColor = ~ epi.cols(EPI.new), stroke = TRUE, group = "EPI",
               fillOpacity = 0.9, color = "white", weight = 0.5,
               label = tooltips,
@@ -194,20 +192,20 @@ cp.map <- leaflet(world.spdf) %>%
   addLayersControl(overlayGroups = c("EPI", "Region"),
                    options = layersControlOptions(collapsed = FALSE)) %>%
   hideGroup("Region")
-cp.map
+epi.map
 ```
 
 
-
 ## Export map to html
-This takes some time, so only run it if needed.
-```{r}
-# saveWidget(cp.map, file = "index.html")
+The map can easily be exported to html.
+```{r, cache = TRUE}
+saveWidget(epi.map, file = "index.html")
 ```
 
 
 # Analysis
 ## Color scale for plotting
+For consistency, use the same colors for the regions as before in the choropleth map.
 ```{r}
 cols.region <- c("#0D0887", "#5402A3", "#8B0AA5", "#B93289", "#DB5C68",
                  "#F48849", "#FEBC2A", "#F0F921")
@@ -215,8 +213,9 @@ cols.region <- c("#0D0887", "#5402A3", "#8B0AA5", "#B93289", "#DB5C68",
 
 
 ## National comparison
-The 32 performance indicators are displayed by country in boxplots sorted by their median and colored by region.
-```{r, fig.width = 15}
+To obtain an overview of the worldwide distribution of the EPI, the 32 performance indicators are displayed by country in boxplots sorted by their median and colored by region.
+
+```{r, fig.width = 20, fig.height = 7, collapse = TRUE}
 ggplot(epi.long[epi.long$Type == "Indicator", ],
        aes(x = reorder(country, EPI.new.value, FUN = median, na.rm = TRUE),
            y = EPI.new.value, fill = region)) +
@@ -225,7 +224,7 @@ ggplot(epi.long[epi.long$Type == "Indicator", ],
   theme(legend.position = "top", legend.title = element_blank(),
         axis.text.x = element_text(angle = 45, hjust = 1),
         axis.text = element_text(size = 5)) +
-  ylab("2020 EPIs") +
+  ylab("2020 performance indicators") +
   xlab("")
 # ggsave("EPI_nations.pdf", width = 20, height = 8.27, bg = "transparent")
 ```
@@ -234,9 +233,10 @@ An ordering according to region is apparent. So, let's have a closer look onto t
 
 
 ## Regional comparison
-This time, the 32 performance indicators are pooled by region and are displayed in boxplots sorted by their median and colored by region.
+To highlight the regional differences, the EPIs are pooled by region and displayed in boxplots sorted by their median and colored by region.
+That way, the strinking gap between the Global West to the remaining regions becomes apparent.
 
-```{r}
+```{r, collapse = TRUE}
 ggplot(epi.long[epi.long$Type == "EPI", ],
        aes(x = reorder(region, EPI.new.value, FUN = median, na.rm = TRUE),
            y = EPI.new.value, fill = region)) +
@@ -252,13 +252,25 @@ ggplot(epi.long[epi.long$Type == "EPI", ],
 
 
 ## EPI vs GDP
-```{r}
+There seems to be a distinct relation between the wealth of a country and its EPI.
+Plotting the [gross domestic product](https://en.wikipedia.org/wiki/Gross_domestic_product) against the EPI shows that this actually true.
+However, this is deceptive as the GDP is on a logarithmic scale.
+The correlation is actually only
+`r format(round(cor(epi.long[epi.long$Type == "EPI", ]$EPI.new.value, 
+      epi.long[epi.long$Type == "EPI", ]$X2019, use = "complete.obs"),
+      digits = 2), nsmall = 2)`, but increases to
+`r round(cor(epi.long[epi.long$Type == "EPI", ]$EPI.new.value, 
+      log(epi.long[epi.long$Type == "EPI", ]$X2019), use = "complete.obs"), 
+      digits = 2)` with the log scaled GDP.
+
+
+```{r, collapse = TRUE}
 ggplot(epi.long[epi.long$Type == "EPI", ],
        aes(x = log(X2019 / 1000000), y = EPI.new.value, fill = region)) +
-  geom_smooth(aes(group = 1), color = "gray", lty = 2,
-              method = "lm", formula = y ~ x, se = FALSE, show.legend = FALSE) +
+  geom_smooth(aes(group = 1), color = "gray", lty = 2, method = "lm",
+              formula = y ~ x, se = FALSE, show.legend = FALSE) +
   geom_point(alpha = 0.5, pch = 21) +
-  scale_color_manual(values = cols.region) +
+  scale_fill_manual(values = cols.region) +
   theme(legend.position = "top", legend.title = element_blank()) +
   ylim(0, 100) +
   ylab("2020 EPI") +
@@ -268,7 +280,8 @@ ggplot(epi.long[epi.long$Type == "EPI", ],
 
 
 # Structural equation model
-In a structural equation model ...
+Now, let's use a [structural equation](https://en.wikipedia.org/wiki/Structural_equation_modeling) model to reveal the driving forces behind the EPI.
+
 
 ## Merge datasets
 ```{r}
@@ -276,18 +289,33 @@ epi <- merge(epi,
              world.spdf[, (names(world.spdf) %in% c("ISO3", "AREA",
                                                     "POP2005", "LAT"))],
              by.x = "iso", by.y = "ISO3")
-names(epi)
-str(epi)
+```
+
+
+## Recode latitude
+For a straight-forward comparison, the latitude is reset to 0 at the south pole and 180 at the north pole by adding 90.
+```{r}
+epi$LAT <- epi$LAT + 90
 ```
 
 
 ## Scale the variables
+For a SEM, the variables need to have a similar variance. Thus, the $z$-scores are calculated to bring the variables on a mean of zero and a standard deviation of one.
 ```{r}
 epi[, c(4, 51:54)] <- apply(epi[, c(4, 51:54)], 2, scale)
+summary(epi[, c(4, 51:54)])
 ```
 
 
 ## Specify the model
+The assumption is that the EPI is positivly driven by the GDP, the population size and the latitude with following reasoning:
+
+* the GDP as a measure of economic development is kinda prerequisite for environmental development
+* larger population size is expected to result in a higher GDP due to higher humanpower
+* the latitude represents world's [north-south divide](https://en.wikipedia.org/wiki/North%E2%80%93South_divide_in_the_World)
+
+The GDP, in turn, is influenced by population size and latitude and the population size by a country's area.
+
 ```{r}
 epi.gdp <- 'EPI.new ~ X2019 + POP2005 + LAT
   X2019 ~ LAT + POP2005
@@ -296,30 +324,49 @@ epi.gdp <- 'EPI.new ~ X2019 + POP2005 + LAT
 
 
 ## Run the model and inspect the results
+Running the model reveals a reasonable fit for the robust estimator.
 ```{r}
-fit.epi.gdp <- sem(epi.gdp, data = epi)
+fit.epi.gdp <- sem(epi.gdp, data = epi, estimator = "MLM")
 summary(fit.epi.gdp, rsq = TRUE)
 ```
 
 
 ## Inspect modification indices
-The modification indices suggest--among others--that there is an unspecified cause that drives GDP and population numbers. In SEM, this unspecified result is modeled by a correlation and encoded with this double tilde `~~`.
-```{r}
+The modification indices suggest--among others--that also area influences the GDP. This makes sense as a larger country also has the potential to posess more resources. Thus, this path is added to the model what further increases the model fit.
+
+```{r, collapse = TRUE}
 modificationindices(fit.epi.gdp, minimum.value = 3)
-fit.epi.gdp.up <- update(fit.epi.gdp, add = "X2019 ~~ POP2005")
+fit.epi.gdp.up <- update(fit.epi.gdp, add = "X2019 ~ AREA")
 summary(fit.epi.gdp.up, rsq = TRUE)
 ```
 
 
 ## Visualize the model
+Finally, the results are plotted as a path diagram including the [path coefficients](https://en.wikipedia.org/wiki/Path_coefficient) and their significance levels.
+This path diagram shows, that based on the available data, the strongest direct influence on the EPI is the latitude followed by the GDP and in a negative way, the population size. 
+
+
 ```{r}
-lavaanPlot(model = fit.epi.gdp.up,
+lavaanPlot(model = fit.epi.gdp.up, coefs = TRUE, stars = c("regress"),
            node_options = list(shape = "box", color = "gray",
                                fontname = "Helvetica"),
            edge_options = list(color = "black"),
-           coefs = TRUE, covs = TRUE, stars = c("covs", "regress"),
            labels = list(AREA = "Area", POP2005 = "Population", X2019 = "GDP",
                          LAT = "Latitude", EPInew = "EPI"))
 ```
 
+
+# Conclusion
+Each step added a further insight onto the EPI:
+
+1. The choropleth map showed the distribution of high- and low-valued countries across the globe, whereby a distinct cluster of high-value countries in North America, Europe and Australia was apparent and lowest values were found in East Asia and Africa
+1. This finding was supported by the inspection of the EPI by country and region. Especially the regional display revealed a strinking gap between the Global West to the remaining regions.
+1. The idea that the GDP drives the EPI seems intuitive: richer countries potentially invest more into a healthy environment. However, the correlation was quite low.
+1. The SEM showed that the north-south divide is also reflected in the EPI. Interestingly, the GDP was only the second-most important influence of the EPI. However, this result may likely change when using the [purchasing power parity (PPP)](https://en.wikipedia.org/wiki/Purchasing_power_parity) instead of the GDP, because large countries such as China or Brazil do well regarding the GDP, but perform comparatively poorly regarding the PPP.
+
+
+# Session info
+```{r}
+sessionInfo()
+```
 

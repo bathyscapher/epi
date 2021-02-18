@@ -47,25 +47,18 @@ class(world.spdf)
 summary(world.spdf)
 
 
-# ## Convert population from character into integer
-# world.spdf$POP2005 <- as.integer(world.spdf$POP2005)
-
 
 ### Collate countries and their names (as soon as it comes to map the world,
 ### geopolitics come to the fore...)
-length(world.spdf$NAME) # many more countries in the shp file
-length(epi$country)
-
-sort(world.spdf$NAME)
-sort(epi$country)
-
-sort(setdiff(world.spdf$NAME, epi$country)) # differences due to naming and numbers
-sort(setdiff(epi$country, world.spdf$NAME))
 
 
-epi.world.spdf <- collateCountryNames(epi, world.spdf)
-list2env(epi.world.spdf, .GlobalEnv)
-rm(epi.world.spdf)
+sort(setdiff(world.spdf$ISO3, epi$iso))
+sort(setdiff(epi$iso, world.spdf$ISO3))
+
+
+# epi.world.spdf <- collateCountryNames(epi, world.spdf)
+# list2env(epi.world.spdf, .GlobalEnv)
+# rm(epi.world.spdf)
 
 
 ##### Control if all EPI countries are present in the world map
@@ -80,8 +73,8 @@ sort(setdiff(world.spdf$NAME, epi$country))
 
 ### Add EPI and regions to sp file
 world.spdf <- merge(world.spdf,
-                    epi[, (colnames(epi) %in% c("country", "EPI.new", "region",
-                    "X2019"))], by.x = "NAME", by.y = "country")
+                    epi[, (colnames(epi) %in% c("iso", "EPI.new", "region",
+                    "X2019"))], by.x = "ISO3", by.y = "iso")
 names(world.spdf)
 
 
@@ -180,11 +173,11 @@ ggplot(epi.long[epi.long$Type == "EPI", ],
 
 ### EPI vs GDP
 ggplot(epi.long[epi.long$Type == "EPI", ],
-       aes(x = log(X2019 / 1000000), y = EPI.new.value, fill = region)) +
+       aes(x = X2019 / 1000000, y = EPI.new.value, fill = region)) +
   geom_smooth(aes(group = 1), color = "gray", lty = 2,
               method = "lm", formula = y ~ x, se = FALSE, show.legend = FALSE) +
   geom_point(alpha = 0.5, pch = 21) +
-  scale_color_manual(values = cols.region) +
+  scale_fill_manual(values = cols.region) +
   theme(legend.position = "top", legend.title = element_blank()) +
   ylim(0, 100) +
   ylab("2020 EPI") +
@@ -204,10 +197,8 @@ names(epi)
 str(epi)
 
 
+epi$LAT <- epi$LAT + 90
 epi[, c(4, 51:54)] <- apply(epi[, c(4, 51:54)], 2, scale)
-
-
-
 
 
 epi.gdp <-
@@ -216,12 +207,12 @@ X2019 ~ LAT + POP2005
 POP2005 ~ AREA'
 
 
-fit.epi.gdp <- sem(epi.gdp, data = epi)
+fit.epi.gdp <- sem(epi.gdp, data = epi, estimator = "MLM")
 summary(fit.epi.gdp, rsq = TRUE)
 
 
 modificationindices(fit.epi.gdp, minimum.value = 3)
-fit.epi.gdp.up <- update(fit.epi.gdp, add = "X2019 ~~ POP2005")
+fit.epi.gdp.up <- update(fit.epi.gdp, add = "X2019 ~ AREA")
 summary(fit.epi.gdp.up, rsq = TRUE)
 
 
@@ -232,7 +223,7 @@ lavaanPlot(model = fit.epi.gdp.up,
            node_options = list(shape = "box", color = "gray",
                                fontname = "Helvetica"),
            edge_options = list(color = "black"),
-           coefs = TRUE, covs = TRUE, stars = c("covs", "regress"),
+           coefs = TRUE, covs = F, stars = c("covs", "regress"),
            labels = list(AREA = "Area", POP2005 = "Population", X2019 = "GDP",
                          LAT = "Latitude", EPInew = "EPI"))
 
