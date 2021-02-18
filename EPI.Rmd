@@ -1,12 +1,14 @@
 ---
 title: "2020 Environmental Performance Index (EPI)"
 author:
-  Rachel Korn
+  Rachel Korn, PhD
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
     toc: true
     toc_float: true
+header-includes:
+   - \usepackage{svg}
 editor_options:
   chunk_output_type: console
 ---
@@ -170,7 +172,7 @@ Finally, use the previous steps to generate a leaflet choropleth map.
 ```{r}
 epi.map <- leaflet(world.spdf) %>%
   addTiles() %>%
-  setView(lat = 20, lng = 0, zoom = 1.5) %>%
+  setView(lat = 20, lng = 0, zoom = 1.4) %>%
   addPolygons(fillColor = ~ epi.cols(EPI.new), stroke = TRUE, group = "EPI",
               fillOpacity = 0.9, color = "white", weight = 0.5,
               label = tooltips,
@@ -280,7 +282,7 @@ ggplot(epi.long[epi.long$Type == "EPI", ],
 
 
 # Structural equation model
-Now, let's use a [structural equation](https://en.wikipedia.org/wiki/Structural_equation_modeling) model to reveal the driving forces behind the EPI.
+Now, let's use a toy [structural equation model](https://en.wikipedia.org/wiki/Structural_equation_modeling) to reveal the driving forces behind the EPI.
 
 
 ## Merge datasets
@@ -308,13 +310,18 @@ summary(epi[, c(4, 51:54)])
 
 
 ## Specify the model
-The assumption is that the EPI is positivly driven by the GDP, the population size and the latitude with following reasoning:
+The assumption is that the EPI is positively driven by the GDP, the population size and the latitude with following reasoning:
 
-* the GDP as a measure of economic development is kinda prerequisite for environmental development
+* the GDP as a measure of economic development is in a sense a prerequisite for environmental development
 * larger population size is expected to result in a higher GDP due to higher humanpower
 * the latitude represents world's [north-south divide](https://en.wikipedia.org/wiki/North%E2%80%93South_divide_in_the_World)
 
 The GDP, in turn, is influenced by population size and latitude and the population size by a country's area.
+
+These assumptions are visualized below in a [directed acyclic graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph).
+
+![](static/DAG.svg){width=45%}
+
 
 ```{r}
 epi.gdp <- 'EPI.new ~ X2019 + POP2005 + LAT
@@ -363,6 +370,8 @@ Each step added a further insight onto the EPI:
 1. This finding was supported by the inspection of the EPI by country and region. Especially the regional display revealed a strinking gap between the Global West to the remaining regions.
 1. The idea that the GDP drives the EPI seems intuitive: richer countries potentially invest more into a healthy environment. However, the correlation was quite low.
 1. The SEM showed that the north-south divide is also reflected in the EPI. Interestingly, the GDP was only the second-most important influence of the EPI. However, this result may likely change when using the [purchasing power parity (PPP)](https://en.wikipedia.org/wiki/Purchasing_power_parity) instead of the GDP, because large countries such as China or Brazil do well regarding the GDP, but perform comparatively poorly regarding the PPP.
+
+Another variable that could be an interesting extension to the dataset is the [Democracy Index](https://www.eiu.com/n/campaigns/democracy-index-2020/) as it seems plausible that developped democracies have the tendency to invest more into environmental development.
 
 
 # Session info
