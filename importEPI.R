@@ -57,9 +57,11 @@ importEPI <- function(){
   gdp <- read.table("2020/API_NY.GDP.MKTP.CD_DS2_en_csv_v2_2017804.csv",
                     header = TRUE, sep = ",", skip = 4)
   gdp <- gdp[, (colnames(gdp) %in% c("Country.Name", "Country.Code", "X2019"))]
+  names(gdp)[3] <- "GDP2019"
+
 
   ## Match country iso codes and add GDP to EPI data.frame
-  setdiff(epi$iso, gdp$Country.Code) # Taiwan is missing in the world bank data
+  # setdiff(epi$iso, gdp$Country.Code) # Taiwan is missing in world bank data
 
   epi <- merge(epi, gdp, by.x = "iso", by.y = "Country.Code")
   names(epi)
@@ -76,7 +78,7 @@ importEPI <- function(){
 
   # Convert into long form
   epi.long <- melt(epi, value.name = "EPI.new.value", variable.name = "EPI.new",
-                   id.vars = c("code", "iso", "country", "region", "X2019"))
+                   id.vars = c("code", "iso", "country", "region", "GDP2019"))
   # str(epi.long)
   # summary(epi.long$EPI.new.value)
 
