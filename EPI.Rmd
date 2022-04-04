@@ -41,7 +41,7 @@ Clear the workspace and set working directory.
 
 ```{r}
 rm(list = ls())
-setwd("~/epi")
+setwd("~/indblik/epi")
 ```
 
 
@@ -197,7 +197,7 @@ epi.map <- leaflet(world.spdf) %>%
             title = "EPI", position = "topleft", group = "EPI") %>%
   addLegend(pal = region.cols, values = ~ region, opacity = 0.5,
             title = "", position = "topleft", group = "Region") %>%
-  addLayersControl(overlayGroups = c("EPI", "Region"),
+  addLayersControl(baseGroups = c("EPI", "Region"),
                    options = layersControlOptions(collapsed = FALSE)) %>%
   hideGroup("Region")
 epi.map
